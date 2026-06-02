@@ -1,0 +1,113 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,-apple-system,sans-serif;padding:20px;}
+#dash{max-width:880px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+.kpi{background:#f7f8f9;border-radius:10px;padding:14px 16px;border:1px solid #e8e8e8;}
+.kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:6px;}
+.kpi-value{font-size:28px;font-weight:600;}
+.kpi-sub{font-size:11px;color:#aaa;margin-top:3px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.card{background:#f7f8f9;border-radius:10px;padding:16px 18px;border:1px solid #e8e8e8;}
+.card-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:12px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.bar-label{font-size:11px;color:#555;width:145px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;height:8px;background:#e8e8e8;border-radius:4px;display:flex;overflow:hidden;}
+.bar-count{font-size:11px;color:#aaa;min-width:48px;text-align:right;}
+.moscow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.mc{border-radius:8px;padding:10px;text-align:center;}
+.mc-name{font-size:10px;font-weight:600;margin-bottom:3px;}
+.mc-num{font-size:22px;font-weight:600;}
+.mc-sub{font-size:9px;margin-top:2px;}
+#status{font-size:12px;margin-bottom:16px;padding:4px 12px;border-radius:12px;display:inline-block;background:#e8f0ff;color:#2a4fa8;}
+#status.ok{background:#e8f4e8;color:#2a7a2a;}
+#status.err{background:#ffe8e8;color:#a82a2a;}
+.footer{font-size:11px;color:#bbb;margin-top:14px;}
+</style>
+
+<div id="dash">
+  <h2 style="font-size:20px;font-weight:600;margin-bottom:4px;">Q3 2026 Epic Planning</h2>
+  <p id="subtitle" style="font-size:13px;color:#666;margin-bottom:12px;">Loading live data...</p>
+  <div id="status">⏳ Loading...</div>
+  <div id="content" style="display:none;margin-top:16px;">
+    <div class="kpi-grid" id="kpis"></div>
+    <div class="two-col">
+      <div class="card"><div class="card-title">ATL / BTL by Value Stream</div><div id="vs-bars"></div></div>
+      <div>
+        <div class="card" style="margin-bottom:12px;"><div class="card-title">MoSCoW Priority</div><div class="moscow-grid" id="moscow"></div></div>
+        <div class="card"><div class="card-title">Data Completeness</div><div id="completeness"></div></div>
+      </div>
+    </div>
+    <div class="footer" id="footer"></div>
+  </div>
+  <div id="error" style="display:none;background:#fff3f3;border-radius:10px;padding:16px;border:1px solid #fcc;color:#a00;font-size:13px;margin-top:12px;"></div>
+</div>
+
+<script>
+var O={"22cd9c4c-f328-46b8-97e3-60a6eebbed7d":"2026 Q3","37b85876-552c-4fe0-9365-4dd8b02dd632":"2026 Q1","670adc8b-5bfa-41bd-b174-94d20bf5c279":"2026 Q2","b983a140-dce0-4afa-8ad4-7bf23069a638":"2026 Q4","a9904a9d-c4b6-4640-90c6-a5e512dfeedc":"2025 Q2","c2a593e8-e353-4138-87ed-48b8c4395b7b":"2025 Q3","abb9cc58-4d79-4223-8649-4a129780080c":"2025 Q4","2e9023e4-805b-43bc-aab2-b971d4d04807":"2027 Q1","1519fdb4-862b-4f18-9160-637a1973316b":"2027 Q2","f0e07b51-c87b-4537-982f-f31abc9c1e7f":"2027 Q3","0e45aa27-c5ea-45e3-838a-56aa8cee4d9a":"2027 Q4","2993fae3-cb87-4944-a3bd-597285510c94":"Above","3dd175bc-dfb5-4c5b-9de3-097c50423b06":"Below","9bdf4c02-7acc-4916-9d22-1928df219a53":"Must","7b72af7f-19de-4303-901c-df32611faf39":"Should","8230be03-6d5f-4222-b733-e16ca82d6ab4":"Could","480c9bb5-2b13-48a8-95e0-9ef90b732f7e":"Won't","c9cea3b0-f5fd-434c-807c-cdb8681dc5ce":"Contractual","c41690e3-b3b9-4f95-85d0-f7f30511a784":"Soft"};
+var F={Q:"4594b6d0-e90c-47f5-843a-6addbdab319c",A:"50f07d98-d5c1-4f23-8b8c-aacb13eb1b62",M:"59cfab52-ce0a-4f86-a4ee-57ec4579a829",C:"ed0784ed-4283-432c-a4bd-0d9cfbf9b8d3",CVS:"20d729c5-23f7-4f33-aeba-724fc51ecdbc",VS:"a9f13b61-1007-433e-8dea-370744d13836"};
+var CU="https://healthedge.atlassian.net/gateway/api/canvas/api/_internal/collab/ari%3Acloud%3Acanvas%3A05ef3999-3e43-4c2b-b377-ede5b074c678%3Adatabase%2Fd597338e-9e9a-4fc8-8596-d27b39102020";
+
+function gv(item){var v=[];var c=item;while(c){if(!c.deleted&&c.content){var k=c.content;if(k.str!==undefined)v.push(k.str);else if(k.arr!==undefined)v.push.apply(v,k.arr.filter(function(x){return x!==null&&x!==undefined;}));else if(k.type){if(k.type._map&&k.type._map.size>0){k.type._map.forEach(function(ni,nk){if(nk==="v"){var nv=gv(ni);if(nv.length)v.push.apply(v,nv);}});}else{var sv=gv(k.type._start);v.push.apply(v,sv);}}}c=c.right;}return v;}
+function xr(doc){var ebi=doc.share.get("ebi");if(!ebi||!ebi._map)return[];var rows=[];ebi._map.forEach(function(item,rowId){var row={_id:rowId};var cur=item;while(cur){if(!cur.deleted&&cur.content&&cur.content.type&&cur.content.type._map){cur.content.type._map.forEach(function(cellItem,fieldId){var cell={};var ci=cellItem;while(ci){if(!ci.deleted&&ci.content&&ci.content.type&&ci.content.type._map){ci.content.type._map.forEach(function(vi,k){var v=gv(vi);if(v.length===1)cell[k]=v[0];else if(v.length>1)cell[k]=v;});}ci=ci.right;}if(Object.keys(cell).length)row[fieldId]=cell;});}cur=cur.right;}if(Object.keys(row).length>1)rows.push(row);});return rows;}
+function rc(row,fid){var cell=row[fid];if(!cell)return"";var v=cell.v;var t=cell.t;if(!v)return"";var val=Array.isArray(v)?v[0]:v;if(t==="s")return O[val]||val;return String(val);}
+
+function render(rows){
+  var q3=rows.filter(function(r){return rc(r,F.Q)==="2026 Q3";});
+  var atl=q3.filter(function(r){return rc(r,F.A)==="Above";});
+  var btl=q3.filter(function(r){return rc(r,F.A)==="Below";});
+  var mc={Must:0,Should:0,Could:0};mc["Won't"]=0;
+  var ma={Must:0,Should:0,Could:0};ma["Won't"]=0;
+  q3.forEach(function(r){var m=rc(r,F.M);if(m in mc){mc[m]++;if(rc(r,F.A)==="Above")ma[m]++;}});
+  var cc={Contractual:0,Soft:0};
+  q3.forEach(function(r){var c=rc(r,F.C);if(c in cc)cc[c]++;});
+  var misCVS=q3.filter(function(r){return!rc(r,F.CVS);}).length;
+  var misMos=q3.filter(function(r){return!rc(r,F.M);}).length;
+  var misATL=q3.filter(function(r){var ab=rc(r,F.A);return ab!=="Above"&&ab!=="Below";}).length;
+  var vsMap={};
+  q3.forEach(function(r){var vs=rc(r,F.VS)||"Unknown";if(!vsMap[vs])vsMap[vs]={a:0,b:0};var ab=rc(r,F.A);if(ab==="Above")vsMap[vs].a++;else if(ab==="Below")vsMap[vs].b++;});
+  var vsArr=Object.entries(vsMap).filter(function(e){return e[0]!=="Unknown";}).sort(function(a,b){return(b[1].a+b[1].b)-(a[1].a+a[1].b);}).slice(0,10);
+  var mx=Math.max.apply(null,vsArr.map(function(e){return e[1].a+e[1].b;}).concat([1]));
+
+  document.getElementById("kpis").innerHTML=
+    kpi("TOTAL Q3",q3.length,"all value streams","#111")+
+    kpi("ABOVE LINE",atl.length,Math.round(atl.length/q3.length*100)+"% committed","#1D6FA8")+
+    kpi("BELOW LINE",btl.length,Math.round(btl.length/q3.length*100)+"% deferred","#888")+
+    kpi("COMMITTED",cc.Contractual+cc.Soft,cc.Contractual+" contractual · "+cc.Soft+" soft","#0D7A5F");
+
+  document.getElementById("vs-bars").innerHTML=vsArr.map(function(e){
+    var ap=Math.round(e[1].a/mx*100);var bp=Math.round(e[1].b/mx*100);
+    return '<div class="bar-row"><span class="bar-label">'+e[0]+'</span><div class="bar-track"><div style="width:'+ap+'%;background:#1D6FA8;height:8px;"></div><div style="width:'+bp+'%;background:#ccc;height:8px;"></div></div><span class="bar-count">'+e[1].a+'↑ '+e[1].b+'↓</span></div>';
+  }).join('')+'<div style="display:flex;gap:12px;margin-top:10px;"><span style="font-size:10px;color:#888;"><span style="display:inline-block;width:10px;height:10px;background:#1D6FA8;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>ATL</span><span style="font-size:10px;color:#888;"><span style="display:inline-block;width:10px;height:10px;background:#ccc;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>BTL</span></div>';
+
+  document.getElementById("moscow").innerHTML=
+    mc2("MUST",mc.Must,ma.Must,"#EBF4FF","#1D6FA8")+
+    mc2("SHOULD",mc.Should,ma.Should,"#EDFAF4","#0D7A5F")+
+    mc2("COULD",mc.Could,ma.Could,"#FEF9EC","#8B6300")+
+    mc2("WON'T",mc["Won't"],ma["Won't"],"#f5f5f5","#888");
+
+  document.getElementById("completeness").innerHTML=
+    bar2("Missing MoSCoW",misMos,q3.length,"#E05C30")+
+    bar2("Missing cust. value stmt",misCVS,q3.length,"#E0A030")+
+    bar2("No ATL/BTL set",misATL,q3.length,"#bbb");
+
+  document.getElementById("footer").textContent="Live · "+new Date().toLocaleString()+" · "+rows.length+" rows in database";
+  var s=document.getElementById("status");s.className="ok";s.textContent="✓ Live";
+  document.getElementById("subtitle").textContent=q3.length+" Q3 epics · "+atl.length+" ATL · "+btl.length+" BTL";
+  document.getElementById("content").style.display="block";
+}
+
+function kpi(l,v,s,c){return'<div class="kpi"><div class="kpi-label">'+l+'</div><div class="kpi-value" style="color:'+c+';">'+v+'</div><div class="kpi-sub">'+s+'</div></div>';}
+function mc2(n,v,a,bg,c){return'<div class="mc" style="background:'+bg+';"><div class="mc-name" style="color:'+c+';">'+n+'</div><div class="mc-num" style="color:'+c+';">'+v+'</div><div class="mc-sub" style="color:'+c+';">'+a+' ATL</div></div>';}
+function bar2(l,n,t,c){return'<div class="bar-row"><span class="bar-label">'+l+'</span><div class="bar-track"><div style="width:'+Math.round(n/t*100)+'%;background:'+c+';height:6px;"></div></div><span class="bar-count">'+n+'</span></div>';}
+
+var s=document.createElement("script");
+s.src="https://cdn.jsdelivr.net/npm/yjs@13.6.18/dist/yjs.cjs.js";
+s.onload=function(){
+  fetch(CU,{credentials:"include",headers:{"Accept":"*/*"}})
+    .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.arrayBuffer();})
+    .then(function(buf){var doc=new Y.Doc();Y.applyUpdate(doc,new Uint8Array(buf));var rows=xr(doc);if(!rows.length)throw new Error("No rows parsed");render(rows);})
+    .catch(function(e){var el=document.getElementById("status");el.className="err";el.textContent="Error";document.getElementById("error").style.display="block";document.getElementById("error").innerHTML="<strong>Error:</strong> "+e.message;});
+};
+document.head.appendChild(s);
+</script>
